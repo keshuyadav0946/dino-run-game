@@ -79,6 +79,7 @@
   .stat .label{ font-size:11px; font-weight:800; letter-spacing:1.4px; text-transform:uppercase; color:var(--muted); }
   .stat .value{ font-family:"Bungee",cursive; font-size:22px; line-height:1.15; }
   .stage{
+    position:relative;
     background:var(--panel); border-radius:18px; box-shadow:var(--shadow);
     padding:10px; border:1px solid var(--btn-border);
   }
@@ -87,8 +88,14 @@
     background:#8ed8f2; touch-action:none; cursor:pointer; outline:none;
     -webkit-tap-highlight-color:transparent;
   }
-  .controls{
-    display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; align-items:stretch;
+  .quickbar{
+    position:absolute; top:18px; left:18px; z-index:6;
+    display:flex; flex-wrap:wrap; gap:8px; max-width:72%;
+  }
+  button.chip{
+    font-size:13px; padding:6px 12px; border-radius:999px; gap:6px;
+    background:var(--panel); border:1.5px solid var(--btn-border);
+    box-shadow:0 4px 14px rgba(23,50,62,.18); opacity:.96;
   }
   button{
     font-family:"Nunito",sans-serif; font-weight:800; font-size:16px;
@@ -101,12 +108,6 @@
   button:active{ transform:scale(.96); }
   button.primary{ background:var(--accent); border-color:var(--accent-dark); color:#fff; }
   button.primary:hover{ background:var(--accent-dark); }
-  button.big{ flex:1 1 140px; justify-content:center; font-size:18px; padding:16px 20px; }
-  button .key{
-    font-size:11px; font-weight:800; background:rgba(0,0,0,.12);
-    border-radius:6px; padding:2px 7px; letter-spacing:.5px;
-  }
-  button.primary .key{ background:rgba(255,255,255,.25); }
   .howto{
     margin-top:18px; background:var(--panel); border:1px solid var(--btn-border);
     border-radius:14px; padding:14px 18px; box-shadow:var(--shadow);
@@ -184,11 +185,6 @@
     border:none; border-radius:0; box-shadow:none; background:transparent; padding:6px;
   }
   body.fs canvas{ max-height:100%; }
-  body.fs .controls{
-    position:fixed; left:0; right:0; bottom:0; z-index:30; margin:0;
-    padding:26px 10px calc(10px + env(safe-area-inset-bottom));
-    background:linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.38));
-  }
   body.fs .howto{ display:none; }
   @media (prefers-reduced-motion: reduce){
     .intro-card{ animation:none; }
@@ -198,7 +194,6 @@
   @media (max-width:560px){
     .stats{ margin-left:0; }
     .stat{ flex:1; }
-    button.big{ padding:14px 12px; }
   }
 </style>
 </head>
@@ -237,24 +232,22 @@
   </header>
 
   <div class="stage">
-    <canvas id="game" width="900" height="300" tabindex="0" aria-label="Dino Run game. Press space or tap to jump."></canvas>
-  </div>
-
-  <div class="controls">
-    <button class="big primary" id="jumpBtn">⬆ Jump <span class="key">SPACE</span></button>
-    <button class="big" id="duckBtn">⬇ Duck <span class="key">↓</span></button>
-    <button id="pauseBtn">⏸ Pause</button>
-    <button id="restartBtn">↻ Restart</button>
-    <button id="soundBtn" aria-pressed="true">🔊 Sound</button>
-    <button id="fsBtn">⛶ Fullscreen</button>
+    <canvas id="game" width="900" height="300" tabindex="0" aria-label="Dino Run game. Press space, tap or swipe up to jump, swipe down to duck."></canvas>
+    <div class="quickbar">
+      <button class="chip" id="pauseBtn">⏸ Pause</button>
+      <button class="chip" id="restartBtn">↻ Restart</button>
+      <button class="chip" id="soundBtn" aria-pressed="true">🔊 Sound</button>
+      <button class="chip" id="fsBtn">⛶ Full</button>
+    </div>
   </div>
 
   <div class="howto">
-    <div><b>Jump:</b> <kbd>Space</kbd> / <kbd>↑</kbd> / tap the game</div>
-    <div><b>Duck:</b> <kbd>↓</kbd> — hold to stay low under birds</div>
+    <div><b>Jump:</b> <kbd>Space</kbd> / <kbd>↑</kbd> / tap or swipe up on the game</div>
+    <div><b>Duck:</b> <kbd>↓</kbd> / swipe down — stay low under birds</div>
     <div><b>Fast fall:</b> press <kbd>↓</kbd> mid-air</div>
     <div><b>Pause:</b> <kbd>P</kbd> &nbsp;·&nbsp; <b>Restart:</b> <kbd>Enter</kbd></div>
     <div>The longer you run, the faster it gets. Every 100 points = a ding! 🎉</div>
+    <div>🌦️ The weather changes every 1000 points — day, sunset, night, rain &amp; snow!</div>
   </div>
 </div>
 
@@ -297,6 +290,7 @@
   function sndJump(){ blip(320, 0.16, "square", 0.05, 640); }
   function sndPoint(){ blip(880, 0.09, "sine", 0.07); setTimeout(function(){ blip(1320, 0.12, "sine", 0.07); }, 70); }
   function sndCrash(){ blip(220, 0.35, "sawtooth", 0.09, 55); }
+  function sndMilestone(){ blip(660, 0.1, "sine", 0.07); setTimeout(function(){ blip(880, 0.1, "sine", 0.07); }, 80); setTimeout(function(){ blip(1320, 0.16, "sine", 0.07); }, 160); }
 
   // ---------- Game state ----------
   var state = "ready"; // ready | playing | paused | over
@@ -319,6 +313,8 @@
 
   function reset(){
     score = 0; dist = 0; speed = baseSpeed; frame = 0; lastPointAt = 0; shake = 0; jumpQueuedAt = -1e9;
+    lastThousand = 0; weatherIdx = 0; pal = clonePal(PALETTES[0]);
+    celFrom = PALETTES[0].cel; celTo = PALETTES[0].cel; wProg = 1; bannerT = 0;
     dino.y = GROUND; dino.vy = 0; dino.jumping = false; dino.ducking = false; dino.dead = false;
     obstacles = []; particles = []; nextSpawnIn = 340;
   }
@@ -329,6 +325,41 @@
   }
   for(var j = 0; j < 40; j++){
     pebbles.push({ x: Math.random()*W, y: GROUND + 12 + Math.random()*38, r: 1 + Math.random()*2.4 });
+  }
+
+  // ---------- Weather: the whole sky changes every 1000 points ----------
+  var PALETTES = [
+    { name:"☀️ Clear Day",    skyTop:[63,185,236],  skyMid:[159,227,247], skyBot:[253,238,201], hillFar:[143,208,160], hillNear:[111,196,135], ground:[242,212,146], groundEdge:[224,185,106], cloud:[255,255,255], cloudA:0.92, stars:0, rain:0, snow:0, cel:{ type:"sun",  x:790, y:52,  r:26, color:[255,217,59] } },
+    { name:"🌇 Sunset",       skyTop:[255,127,80],  skyMid:[255,171,99],  skyBot:[255,231,165], hillFar:[119,166,110], hillNear:[90,143,96],   ground:[233,191,118], groundEdge:[201,152,82],  cloud:[255,241,224], cloudA:0.9,  stars:0, rain:0, snow:0, cel:{ type:"sun",  x:730, y:118, r:34, color:[255,158,64] } },
+    { name:"🌙 Starry Night", skyTop:[8,18,46],     skyMid:[24,44,86],    skyBot:[64,84,124],   hillFar:[42,82,70],    hillNear:[31,66,56],    ground:[108,98,82],   groundEdge:[82,72,58],    cloud:[176,188,208], cloudA:0.22, stars:1, rain:0, snow:0, cel:{ type:"moon", x:790, y:54,  r:22, color:[242,240,220] } },
+    { name:"🌧️ Rain Storm",   skyTop:[86,106,128],  skyMid:[128,148,164], skyBot:[172,182,186], hillFar:[96,126,106],  hillNear:[76,106,86],   ground:[168,148,108], groundEdge:[138,118,84],  cloud:[92,102,116],  cloudA:0.88, stars:0, rain:1, snow:0, cel:{ type:"none", x:0,   y:0,   r:0,  color:[0,0,0] } },
+    { name:"❄️ Snowfall",     skyTop:[148,199,234], skyMid:[203,231,247], skyBot:[246,250,255], hillFar:[199,224,234], hillNear:[172,209,224], ground:[238,246,251], groundEdge:[198,219,234], cloud:[255,255,255], cloudA:0.95, stars:0, rain:0, snow:1, cel:{ type:"sun",  x:790, y:50,  r:22, color:[255,243,196] } }
+  ];
+  var weatherIdx = 0, lastThousand = 0, wProg = 1;
+  var bannerText = "", bannerT = 0;
+  var celFrom = PALETTES[0].cel, celTo = PALETTES[0].cel;
+  var stars = [];
+  for(var si = 0; si < 70; si++) stars.push({ x: Math.random()*W, y: Math.random()*150, r: 0.8 + Math.random()*1.4, tw: Math.random()*6 });
+  function clonePal(p){
+    var o = {}, k;
+    for(k in p){ o[k] = (p[k] instanceof Array) ? p[k].slice() : p[k]; }
+    return o;
+  }
+  var pal = clonePal(PALETTES[0]);
+  function rgba(c, a){ return "rgba(" + (c[0]|0) + "," + (c[1]|0) + "," + (c[2]|0) + "," + (a === undefined ? 1 : a) + ")"; }
+  function setWeather(idx){
+    weatherIdx = idx;
+    celFrom = celTo; celTo = PALETTES[idx].cel; wProg = 0;
+    bannerText = PALETTES[idx].name; bannerT = 190;
+    sndMilestone();
+  }
+  function lerpWeather(dt){
+    var tp = PALETTES[weatherIdx], f = Math.min(1, dt * 0.05), i, c, k;
+    var cols = ["skyTop","skyMid","skyBot","hillFar","hillNear","ground","groundEdge","cloud"];
+    for(i = 0; i < cols.length; i++){ k = cols[i]; for(c = 0; c < 3; c++) pal[k][c] += (tp[k][c] - pal[k][c]) * f; }
+    var nums = ["cloudA","stars","rain","snow"];
+    for(i = 0; i < nums.length; i++){ k = nums[i]; pal[k] += (tp[k] - pal[k]) * f; }
+    if(wProg < 1) wProg = Math.min(1, wProg + dt / 80);
   }
 
   // ---------- Input ----------
@@ -385,14 +416,27 @@
     } else if(e.code === "ArrowDown" || e.code === "KeyS") doDuckEnd();
   });
 
-  canvas.addEventListener("pointerdown", function(e){ e.preventDefault(); doJump(); });
-  var jumpBtn = document.getElementById("jumpBtn");
-  var duckBtn = document.getElementById("duckBtn");
-  jumpBtn.addEventListener("pointerdown", function(e){ e.preventDefault(); doJump(); });
-  duckBtn.addEventListener("pointerdown", function(e){ e.preventDefault(); doDuckStart(); });
-  duckBtn.addEventListener("pointerup", doDuckEnd);
-  duckBtn.addEventListener("pointerleave", doDuckEnd);
-  duckBtn.addEventListener("pointercancel", doDuckEnd);
+  // Touch controls: the game area itself is the controller — tap or swipe up
+  // to jump, swipe down to duck. No on-screen Jump/Duck buttons any more.
+  var swipe = null;
+  canvas.addEventListener("pointerdown", function(e){
+    e.preventDefault();
+    swipe = { y: e.clientY, acted: false, ducking: false };
+  });
+  canvas.addEventListener("pointermove", function(e){
+    if(!swipe || swipe.acted) return;
+    var dy = e.clientY - swipe.y;
+    if(dy <= -26){ swipe.acted = true; doJump(); }
+    else if(dy >= 26){ swipe.acted = true; swipe.ducking = true; doDuckStart(); }
+  });
+  function endSwipe(cancelled){
+    if(!swipe) return;
+    if(swipe.ducking) doDuckEnd();
+    else if(!swipe.acted && !cancelled) doJump(); // plain tap
+    swipe = null;
+  }
+  canvas.addEventListener("pointerup", function(){ endSwipe(false); });
+  canvas.addEventListener("pointercancel", function(){ endSwipe(true); });
   document.getElementById("pauseBtn").addEventListener("click", function(){ ensureAudio(); togglePause(); });
   document.getElementById("restartBtn").addEventListener("click", function(){ ensureAudio(); reset(); state = "playing"; syncPauseBtn(); });
   var soundBtn = document.getElementById("soundBtn");
@@ -448,7 +492,7 @@
   document.addEventListener("fullscreenchange", function(){
     var on = !!document.fullscreenElement;
     document.body.classList.toggle("fs", on);
-    fsBtn.textContent = on ? "✕ Exit Full" : "⛶ Fullscreen";
+    fsBtn.textContent = on ? "✕ Exit" : "⛶ Full";
   });
 
   // ---------- Keyboard focus ----------
@@ -484,6 +528,8 @@
   // ---------- Physics & update ----------
   function update(dt){
     frame++;
+    lerpWeather(dt);
+    if(bannerT > 0) bannerT -= dt;
     // clouds always drift
     for(var i = 0; i < clouds.length; i++){
       clouds[i].x -= clouds[i].v * dt;
@@ -500,6 +546,8 @@
     dist += speed * dt;
     score = Math.floor(dist / 24);
     if(score - lastPointAt >= 100){ lastPointAt = score - (score % 100); sndPoint(); }
+    var th = Math.floor(score / 1000);
+    if(th !== lastThousand){ lastThousand = th; setWeather(th % PALETTES.length); }
     speed = Math.min(maxSpeed, baseSpeed + dist / 2600);
 
     // dino physics
@@ -604,26 +652,54 @@
     ctx.closePath();
   }
 
+  function drawCelestial(cel, alpha){
+    if(!cel || cel.type === "none" || alpha <= 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if(cel.type === "sun"){
+      ctx.fillStyle = rgba(cel.color, 0.35);
+      ctx.beginPath(); ctx.arc(cel.x, cel.y, cel.r * 1.45, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = rgba(cel.color);
+      ctx.beginPath(); ctx.arc(cel.x, cel.y, cel.r, 0, Math.PI*2); ctx.fill();
+    } else if(cel.type === "moon"){
+      ctx.fillStyle = rgba(cel.color, 0.22);
+      ctx.beginPath(); ctx.arc(cel.x, cel.y, cel.r * 1.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = rgba(cel.color);
+      ctx.beginPath(); ctx.arc(cel.x, cel.y, cel.r, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "rgba(189,187,168,.85)";
+      ctx.beginPath(); ctx.arc(cel.x - 6, cel.y - 4, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cel.x + 7, cel.y + 6, 3, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cel.x + 3, cel.y - 9, 2.4, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawSky(){
     var g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#3fb9ec");
-    g.addColorStop(0.62, "#9fe3f7");
-    g.addColorStop(1, "#fdeec9");
+    g.addColorStop(0, rgba(pal.skyTop));
+    g.addColorStop(0.62, rgba(pal.skyMid));
+    g.addColorStop(1, rgba(pal.skyBot));
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    // sun
-    ctx.fillStyle = "#ffd93b";
-    ctx.beginPath(); ctx.arc(W - 110, 52, 26, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "rgba(255,217,59,.35)";
-    ctx.beginPath(); ctx.arc(W - 110, 52, 38, 0, Math.PI*2); ctx.fill();
+    // stars (fade in at night)
+    if(pal.stars > 0.02){
+      for(var s2 = 0; s2 < stars.length; s2++){
+        var st = stars[s2];
+        ctx.fillStyle = "rgba(255,255,240," + (pal.stars * (0.5 + 0.5 * Math.sin(frame * 0.06 + st.tw))).toFixed(3) + ")";
+        ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    // sun / moon — crossfades when the weather changes
+    if(wProg >= 1) drawCelestial(celTo, 1);
+    else { drawCelestial(celFrom, 1 - wProg); drawCelestial(celTo, wProg); }
     // distant hills (parallax)
-    ctx.fillStyle = "#8fd0a0";
+    ctx.fillStyle = rgba(pal.hillFar);
     var off = (dist * 0.25) % 480;
     for(var i = -1; i < 4; i++){
       ctx.beginPath();
       ctx.arc(i * 480 - off + 160, GROUND + 4, 190, Math.PI, 0);
       ctx.fill();
     }
-    ctx.fillStyle = "#6fc487";
+    ctx.fillStyle = rgba(pal.hillNear);
     var off2 = (dist * 0.5) % 340;
     for(var k = -1; k < 5; k++){
       ctx.beginPath();
@@ -631,7 +707,7 @@
       ctx.fill();
     }
     // clouds
-    ctx.fillStyle = "rgba(255,255,255,.92)";
+    ctx.fillStyle = rgba(pal.cloud, pal.cloudA);
     for(var c = 0; c < clouds.length; c++){
       var cl = clouds[c], s = cl.s;
       ctx.beginPath();
@@ -641,14 +717,35 @@
       ctx.arc(cl.x + 4*s, cl.y - 7*s, 12*s, 0, Math.PI*2);
       ctx.fill();
     }
+    // rain streaks
+    if(pal.rain > 0.03){
+      ctx.strokeStyle = "rgba(205,225,240," + (pal.rain * 0.55).toFixed(3) + ")";
+      ctx.lineWidth = 2; ctx.lineCap = "round";
+      ctx.beginPath();
+      for(var ri = 0; ri < 70; ri++){
+        var rx = (ri * 97 + frame * 26) % (W + 60) - 30;
+        var ry = (ri * 61 + frame * 38) % H;
+        ctx.moveTo(rx, ry); ctx.lineTo(rx - 4, ry + 13);
+      }
+      ctx.stroke();
+    }
+    // snowfall
+    if(pal.snow > 0.03){
+      ctx.fillStyle = "rgba(255,255,255," + (pal.snow * 0.9).toFixed(3) + ")";
+      for(var fi = 0; fi < 60; fi++){
+        var fx = (fi * 83 + Math.sin(frame * 0.02 + fi) * 10 + frame * 0.4) % W;
+        var fy = (fi * 47 + frame * 1.1) % H;
+        ctx.beginPath(); ctx.arc(fx, fy, 1.6 + (fi % 3) * 0.7, 0, Math.PI*2); ctx.fill();
+      }
+    }
   }
 
   function drawGround(){
-    ctx.fillStyle = "#f2d492";
+    ctx.fillStyle = rgba(pal.ground);
     ctx.fillRect(0, GROUND, W, H - GROUND);
-    ctx.fillStyle = "#e0b96a";
+    ctx.fillStyle = rgba(pal.groundEdge);
     ctx.fillRect(0, GROUND, W, 5);
-    ctx.fillStyle = "rgba(160,120,50,.5)";
+    ctx.fillStyle = rgba(pal.groundEdge, 0.55);
     for(var i = 0; i < pebbles.length; i++){
       ctx.beginPath();
       ctx.arc(pebbles[i].x, pebbles[i].y, pebbles[i].r, 0, Math.PI*2);
@@ -861,11 +958,28 @@
 
     // score flash at each 100
     if(state === "playing" && score > 0 && score % 100 < 4 && frame % 30 < 15){
-      ctx.fillStyle = "#17323e";
       ctx.font = "22px Bungee, sans-serif";
       ctx.textAlign = "right";
+      ctx.lineWidth = 4; ctx.strokeStyle = "rgba(23,50,62,.65)";
+      ctx.strokeText(score + "!", W - 18, 34);
+      ctx.fillStyle = "#ffffff";
       ctx.fillText(score + "!", W - 18, 34);
       ctx.textAlign = "left";
+    }
+
+    // weather-change banner
+    if(bannerT > 0 && bannerText){
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, bannerT / 45);
+      ctx.font = "800 16px Nunito, sans-serif";
+      var bw = ctx.measureText(bannerText).width + 38;
+      ctx.fillStyle = "rgba(255,255,255,.93)";
+      roundRect(W/2 - bw/2, 12, bw, 34, 17); ctx.fill();
+      ctx.strokeStyle = "rgba(23,50,62,.15)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "#17323e"; ctx.textAlign = "center";
+      ctx.fillText(bannerText, W/2, 35);
+      ctx.textAlign = "left";
+      ctx.restore();
     }
 
     if(state === "ready"){
