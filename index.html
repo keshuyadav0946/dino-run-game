@@ -119,6 +119,82 @@
     background:var(--btn); border:1px solid var(--btn-border); border-bottom-width:3px;
     border-radius:6px; padding:1px 7px; color:var(--ink);
   }
+  /* ---------- Start / intro screen ---------- */
+  .intro{
+    position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
+    background:rgba(10,22,30,.8); padding:16px; overflow:auto;
+  }
+  .intro-card{
+    background:var(--panel); color:var(--ink); border:1px solid var(--btn-border);
+    border-radius:20px; box-shadow:var(--shadow); padding:18px 20px 22px;
+    width:100%; max-width:430px; text-align:center;
+    animation:introPop .5s cubic-bezier(.2,1.5,.4,1) both;
+  }
+  @keyframes introPop{ from{ transform:scale(.72) translateY(26px); opacity:0; } to{ transform:scale(1) translateY(0); opacity:1; } }
+  .intro-anim{
+    position:relative; height:84px; border-radius:12px; overflow:hidden;
+    background:linear-gradient(#3fb9ec 0%, #9fe3f7 68%, #f2d492 68%, #f2d492 100%);
+  }
+  .intro-sun{ position:absolute; top:10px; right:16px; font-size:22px; }
+  .intro-cactus{ position:absolute; bottom:8px; right:34px; font-size:26px; }
+  .intro-dino{
+    position:absolute; bottom:6px; left:-56px; font-size:42px; line-height:1;
+    animation:runAcross 2.8s linear infinite;
+  }
+  @keyframes runAcross{
+    0%{ left:-56px; transform:translateY(0); }
+    22%{ transform:translateY(-13px); }
+    45%{ transform:translateY(0); }
+    68%{ transform:translateY(-13px); }
+    88%{ transform:translateY(0); }
+    100%{ left:calc(100% + 10px); transform:translateY(0); }
+  }
+  .intro-title{
+    font-family:"Bungee",cursive; font-size:clamp(30px,8vw,40px); margin:14px 0 2px; line-height:1;
+  }
+  .intro-title .run{ color:var(--accent); }
+  .intro-sub{ margin:0 0 16px; color:var(--muted); font-weight:700; font-size:15px; }
+  .intro-opts{
+    display:flex; flex-direction:column; gap:10px;
+    opacity:0; transform:translateY(14px); pointer-events:none;
+    transition:opacity .35s ease, transform .35s ease;
+  }
+  .intro.show-opts .intro-opts{ opacity:1; transform:none; pointer-events:auto; }
+  .intro-hint{ color:var(--muted); font-weight:800; font-size:14px; margin:6px 0 2px; animation:introBlink 1s ease-in-out infinite; }
+  .intro.show-opts .intro-hint{ display:none; }
+  @keyframes introBlink{ 0%,100%{ opacity:.45; } 50%{ opacity:1; } }
+  button.mode{
+    flex-direction:column; align-items:flex-start; gap:2px; text-align:left;
+    padding:14px 18px; font-size:18px; width:100%;
+  }
+  button.mode small{ font-size:13px; font-weight:700; color:var(--muted); }
+  button.mode.primary small{ color:rgba(255,255,255,.85); }
+  /* ---------- Fullscreen (flat / landscape) mode ---------- */
+  body.fs{ padding:0; overflow:hidden; }
+  body.fs .wrap{ max-width:none; height:100vh; height:100dvh; display:flex; flex-direction:column; }
+  body.fs header.top{
+    position:fixed; top:0; left:0; right:0; z-index:30; margin:0;
+    padding:8px 10px; pointer-events:none;
+  }
+  body.fs header.top > div:first-child{ display:none; }
+  body.fs .stat{ min-width:0; padding:4px 12px; }
+  body.fs .stat .value{ font-size:16px; }
+  body.fs .stage{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    border:none; border-radius:0; box-shadow:none; background:transparent; padding:6px;
+  }
+  body.fs canvas{ max-height:100%; }
+  body.fs .controls{
+    position:fixed; left:0; right:0; bottom:0; z-index:30; margin:0;
+    padding:26px 10px calc(10px + env(safe-area-inset-bottom));
+    background:linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.38));
+  }
+  body.fs .howto{ display:none; }
+  @media (prefers-reduced-motion: reduce){
+    .intro-card{ animation:none; }
+    .intro-dino{ animation-duration:6s; }
+    .intro-hint{ animation:none; }
+  }
   @media (max-width:560px){
     .stats{ margin-left:0; }
     .stat{ flex:1; }
@@ -127,6 +203,26 @@
 </style>
 </head>
 <body>
+<div class="intro" id="intro" role="dialog" aria-label="Choose how to play">
+  <div class="intro-card">
+    <div class="intro-anim" aria-hidden="true">
+      <span class="intro-sun">☀️</span>
+      <span class="intro-dino">🦖</span>
+      <span class="intro-cactus">🌵</span>
+    </div>
+    <div class="intro-title">DINO <span class="run">RUN</span></div>
+    <p class="intro-sub">Ready to run? Choose how you want to play:</p>
+    <p class="intro-hint">Get ready… 🏃</p>
+    <div class="intro-opts">
+      <button class="mode primary" id="playNormalBtn">📱 Play — Normal
+        <small>Game runs right here, screen stays as it is</small>
+      </button>
+      <button class="mode" id="playFullBtn">🔄 Play — Fullscreen (Rotate)
+        <small>Screen goes flat &amp; fullscreen, like BGMI / Free Fire</small>
+      </button>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <header class="top">
     <div>
@@ -150,6 +246,7 @@
     <button id="pauseBtn">⏸ Pause</button>
     <button id="restartBtn">↻ Restart</button>
     <button id="soundBtn" aria-pressed="true">🔊 Sound</button>
+    <button id="fsBtn">⛶ Fullscreen</button>
   </div>
 
   <div class="howto">
@@ -203,6 +300,7 @@
 
   // ---------- Game state ----------
   var state = "ready"; // ready | playing | paused | over
+  var introOpen = true; // start screen is up until a play mode is chosen
   var score = 0, best = 0, dist = 0;
   var speed = 6, baseSpeed = 6, maxSpeed = 13.5;
   var frame = 0, lastPointAt = 0;
@@ -267,6 +365,7 @@
   }
 
   document.addEventListener("keydown", function(e){
+    if(introOpen) return; // start screen is showing — keys go to the mode buttons
     if(e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW"){
       e.preventDefault();
       // a focused button would otherwise swallow / re-trigger on Space — hand the key to the game
@@ -302,6 +401,54 @@
     soundBtn.textContent = soundOn ? "🔊 Sound" : "🔇 Muted";
     soundBtn.setAttribute("aria-pressed", soundOn ? "true" : "false");
     if(soundOn) sndPoint();
+  });
+
+  // ---------- Start screen & fullscreen (flat) mode ----------
+  var intro = document.getElementById("intro");
+  var fsBtn = document.getElementById("fsBtn");
+
+  // let the intro animation play a moment, then reveal the two options
+  setTimeout(function(){ intro.classList.add("show-opts"); }, reduced ? 60 : 950);
+
+  function startGame(){
+    introOpen = false;
+    intro.style.display = "none";
+    reset(); state = "playing"; syncPauseBtn(); focusGame();
+  }
+  function lockLandscape(){
+    try{
+      if(screen.orientation && screen.orientation.lock){
+        var p = screen.orientation.lock("landscape");
+        if(p && p.catch) p.catch(function(){});
+      }
+    }catch(err){ /* desktop / unsupported — fullscreen alone is fine */ }
+  }
+  function enterFullscreen(){
+    var el = document.documentElement;
+    try{
+      var r = null;
+      if(el.requestFullscreen) r = el.requestFullscreen();
+      else if(el.webkitRequestFullscreen) r = el.webkitRequestFullscreen();
+      if(r && r.then) r.then(lockLandscape, function(){});
+      else if(r && r.catch) r.catch(function(){});
+      else setTimeout(lockLandscape, 300);
+    }catch(err){ /* fullscreen refused — game still starts normally */ }
+  }
+  document.getElementById("playNormalBtn").addEventListener("click", function(){
+    ensureAudio(); startGame();
+  });
+  document.getElementById("playFullBtn").addEventListener("click", function(){
+    ensureAudio(); enterFullscreen(); startGame();
+  });
+  fsBtn.addEventListener("click", function(){
+    if(document.fullscreenElement){
+      if(document.exitFullscreen) document.exitFullscreen();
+    } else enterFullscreen();
+  });
+  document.addEventListener("fullscreenchange", function(){
+    var on = !!document.fullscreenElement;
+    document.body.classList.toggle("fs", on);
+    fsBtn.textContent = on ? "✕ Exit Full" : "⛶ Fullscreen";
   });
 
   // ---------- Keyboard focus ----------
