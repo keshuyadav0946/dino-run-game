@@ -1,4 +1,4 @@
-const CACHE = "dino-run-v4";
+const CACHE = "dino-run-v6";
 const ASSETS = [
   "./",
   "./index.html",

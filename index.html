@@ -198,7 +198,7 @@
 </style>
 </head>
 <body>
-<div class="intro" id="intro" role="dialog" aria-label="Choose how to play">
+<div class="intro" id="intro" role="dialog" aria-label="Start game">
   <div class="intro-card">
     <div class="intro-anim" aria-hidden="true">
       <span class="intro-sun">☀️</span>
@@ -206,15 +206,10 @@
       <span class="intro-cactus">🌵</span>
     </div>
     <div class="intro-title">DINO <span class="run">RUN</span></div>
-    <p class="intro-sub">Ready to run? Choose how you want to play:</p>
+    <p class="intro-sub">Ready to run? Tap play to start:</p>
     <p class="intro-hint">Get ready… 🏃</p>
     <div class="intro-opts">
-      <button class="mode primary" id="playNormalBtn">📱 Play — Normal
-        <small>Game runs right here, screen stays as it is</small>
-      </button>
-      <button class="mode" id="playFullBtn">🔄 Play — Fullscreen (Rotate)
-        <small>Screen goes flat &amp; fullscreen, like BGMI / Free Fire</small>
-      </button>
+      <button class="mode primary" id="playFullBtn">🔄 Play — Fullscreen (Rotate)</button>
     </div>
   </div>
 </div>
@@ -247,7 +242,7 @@
     <div><b>Fast fall:</b> press <kbd>↓</kbd> mid-air</div>
     <div><b>Pause:</b> <kbd>P</kbd> &nbsp;·&nbsp; <b>Restart:</b> <kbd>Enter</kbd></div>
     <div>The longer you run, the faster it gets. Every 100 points = a ding! 🎉</div>
-    <div>🌦️ The weather changes every 1000 points — day, sunset, night, rain &amp; snow!</div>
+    <div>🌦️ The weather changes every 200 points — a new surprise each time: rain, winter snow, volcano fire, tufaan storm, waterfall &amp; more!</div>
   </div>
 </div>
 
@@ -313,7 +308,7 @@
 
   function reset(){
     score = 0; dist = 0; speed = baseSpeed; frame = 0; lastPointAt = 0; shake = 0; jumpQueuedAt = -1e9;
-    lastThousand = 0; weatherIdx = 0; pal = clonePal(PALETTES[0]);
+    lastStep = 0; weatherIdx = 0; pal = clonePal(PALETTES[0]);
     celFrom = PALETTES[0].cel; celTo = PALETTES[0].cel; wProg = 1; bannerT = 0;
     dino.y = GROUND; dino.vy = 0; dino.jumping = false; dino.ducking = false; dino.dead = false;
     obstacles = []; particles = []; nextSpawnIn = 340;
@@ -327,15 +322,19 @@
     pebbles.push({ x: Math.random()*W, y: GROUND + 12 + Math.random()*38, r: 1 + Math.random()*2.4 });
   }
 
-  // ---------- Weather: the whole sky changes every 1000 points ----------
+  // ---------- Weather: the whole sky changes every 200 points ----------
+  // Each change picks a RANDOM weather (never the same one twice in a row).
   var PALETTES = [
-    { name:"☀️ Clear Day",    skyTop:[63,185,236],  skyMid:[159,227,247], skyBot:[253,238,201], hillFar:[143,208,160], hillNear:[111,196,135], ground:[242,212,146], groundEdge:[224,185,106], cloud:[255,255,255], cloudA:0.92, stars:0, rain:0, snow:0, cel:{ type:"sun",  x:790, y:52,  r:26, color:[255,217,59] } },
-    { name:"🌇 Sunset",       skyTop:[255,127,80],  skyMid:[255,171,99],  skyBot:[255,231,165], hillFar:[119,166,110], hillNear:[90,143,96],   ground:[233,191,118], groundEdge:[201,152,82],  cloud:[255,241,224], cloudA:0.9,  stars:0, rain:0, snow:0, cel:{ type:"sun",  x:730, y:118, r:34, color:[255,158,64] } },
-    { name:"🌙 Starry Night", skyTop:[8,18,46],     skyMid:[24,44,86],    skyBot:[64,84,124],   hillFar:[42,82,70],    hillNear:[31,66,56],    ground:[108,98,82],   groundEdge:[82,72,58],    cloud:[176,188,208], cloudA:0.22, stars:1, rain:0, snow:0, cel:{ type:"moon", x:790, y:54,  r:22, color:[242,240,220] } },
-    { name:"🌧️ Rain Storm",   skyTop:[86,106,128],  skyMid:[128,148,164], skyBot:[172,182,186], hillFar:[96,126,106],  hillNear:[76,106,86],   ground:[168,148,108], groundEdge:[138,118,84],  cloud:[92,102,116],  cloudA:0.88, stars:0, rain:1, snow:0, cel:{ type:"none", x:0,   y:0,   r:0,  color:[0,0,0] } },
-    { name:"❄️ Snowfall",     skyTop:[148,199,234], skyMid:[203,231,247], skyBot:[246,250,255], hillFar:[199,224,234], hillNear:[172,209,224], ground:[238,246,251], groundEdge:[198,219,234], cloud:[255,255,255], cloudA:0.95, stars:0, rain:0, snow:1, cel:{ type:"sun",  x:790, y:50,  r:22, color:[255,243,196] } }
+    { name:"☀️ Clear Day",    skyTop:[63,185,236],  skyMid:[159,227,247], skyBot:[253,238,201], hillFar:[143,208,160], hillNear:[111,196,135], ground:[242,212,146], groundEdge:[224,185,106], cloud:[255,255,255], cloudA:0.92, stars:0, rain:0, snow:0, lava:0, water:0, wind:0, ember:0, cel:{ type:"sun",  x:790, y:52,  r:26, color:[255,217,59] } },
+    { name:"🌇 Sunset",       skyTop:[255,127,80],  skyMid:[255,171,99],  skyBot:[255,231,165], hillFar:[119,166,110], hillNear:[90,143,96],   ground:[233,191,118], groundEdge:[201,152,82],  cloud:[255,241,224], cloudA:0.9,  stars:0, rain:0, snow:0, lava:0, water:0, wind:0, ember:0, cel:{ type:"sun",  x:730, y:118, r:34, color:[255,158,64] } },
+    { name:"🌙 Starry Night", skyTop:[8,18,46],     skyMid:[24,44,86],    skyBot:[64,84,124],   hillFar:[42,82,70],    hillNear:[31,66,56],    ground:[108,98,82],   groundEdge:[82,72,58],    cloud:[176,188,208], cloudA:0.22, stars:1, rain:0, snow:0, lava:0, water:0, wind:0, ember:0, cel:{ type:"moon", x:790, y:54,  r:22, color:[242,240,220] } },
+    { name:"🌧️ Rain Storm",   skyTop:[86,106,128],  skyMid:[128,148,164], skyBot:[172,182,186], hillFar:[96,126,106],  hillNear:[76,106,86],   ground:[168,148,108], groundEdge:[138,118,84],  cloud:[92,102,116],  cloudA:0.88, stars:0, rain:1, snow:0, lava:0, water:0, wind:0.45, ember:0, cel:{ type:"none", x:0, y:0, r:0, color:[0,0,0] } },
+    { name:"❄️ Winter Snow",  skyTop:[148,199,234], skyMid:[203,231,247], skyBot:[246,250,255], hillFar:[199,224,234], hillNear:[172,209,224], ground:[238,246,251], groundEdge:[198,219,234], cloud:[255,255,255], cloudA:0.95, stars:0, rain:0, snow:1, lava:0, water:0, wind:0.15, ember:0, cel:{ type:"sun",  x:790, y:50,  r:22, color:[255,243,196] } },
+    { name:"🌋 Volcano Fire", skyTop:[52,26,34],    skyMid:[128,52,40],   skyBot:[214,96,48],   hillFar:[74,46,44],    hillNear:[58,36,38],    ground:[72,54,48],    groundEdge:[255,96,26],   cloud:[88,64,60],    cloudA:0.7,  stars:0, rain:0, snow:0, lava:1, water:0, wind:0, ember:1, cel:{ type:"none", x:0, y:0, r:0, color:[0,0,0] } },
+    { name:"🌪️ Tufaan Storm", skyTop:[44,50,62],    skyMid:[82,92,106],   skyBot:[128,138,150], hillFar:[68,82,74],    hillNear:[56,70,62],    ground:[118,106,86],  groundEdge:[94,82,64],    cloud:[58,64,74],    cloudA:0.92, stars:0, rain:0.35, snow:0, lava:0, water:0, wind:1, ember:0, cel:{ type:"none", x:0, y:0, r:0, color:[0,0,0] } },
+    { name:"💦 Waterfall",    skyTop:[64,170,220],  skyMid:[150,220,240], skyBot:[222,250,244], hillFar:[118,200,168], hillNear:[94,180,148],  ground:[212,192,132], groundEdge:[172,152,102], cloud:[255,255,255], cloudA:0.9,  stars:0, rain:0, snow:0, lava:0, water:1, wind:0, ember:0, cel:{ type:"sun",  x:120, y:50,  r:22, color:[255,240,190] } }
   ];
-  var weatherIdx = 0, lastThousand = 0, wProg = 1;
+  var weatherIdx = 0, lastStep = 0, wProg = 1;
   var bannerText = "", bannerT = 0;
   var celFrom = PALETTES[0].cel, celTo = PALETTES[0].cel;
   var stars = [];
@@ -353,11 +352,18 @@
     bannerText = PALETTES[idx].name; bannerT = 190;
     sndMilestone();
   }
+  // a fresh random weather each time — never the one already on screen
+  function pickWeather(){
+    if(PALETTES.length < 2) return weatherIdx;
+    var n;
+    do { n = Math.floor(Math.random() * PALETTES.length); } while(n === weatherIdx);
+    return n;
+  }
   function lerpWeather(dt){
     var tp = PALETTES[weatherIdx], f = Math.min(1, dt * 0.05), i, c, k;
     var cols = ["skyTop","skyMid","skyBot","hillFar","hillNear","ground","groundEdge","cloud"];
     for(i = 0; i < cols.length; i++){ k = cols[i]; for(c = 0; c < 3; c++) pal[k][c] += (tp[k][c] - pal[k][c]) * f; }
-    var nums = ["cloudA","stars","rain","snow"];
+    var nums = ["cloudA","stars","rain","snow","lava","water","wind","ember"];
     for(i = 0; i < nums.length; i++){ k = nums[i]; pal[k] += (tp[k] - pal[k]) * f; }
     if(wProg < 1) wProg = Math.min(1, wProg + dt / 80);
   }
@@ -451,7 +457,7 @@
   var intro = document.getElementById("intro");
   var fsBtn = document.getElementById("fsBtn");
 
-  // let the intro animation play a moment, then reveal the two options
+  // let the intro animation play a moment, then reveal the play option
   setTimeout(function(){ intro.classList.add("show-opts"); }, reduced ? 60 : 950);
 
   function startGame(){
@@ -478,9 +484,6 @@
       else setTimeout(lockLandscape, 300);
     }catch(err){ /* fullscreen refused — game still starts normally */ }
   }
-  document.getElementById("playNormalBtn").addEventListener("click", function(){
-    ensureAudio(); startGame();
-  });
   document.getElementById("playFullBtn").addEventListener("click", function(){
     ensureAudio(); enterFullscreen(); startGame();
   });
@@ -532,7 +535,7 @@
     if(bannerT > 0) bannerT -= dt;
     // clouds always drift
     for(var i = 0; i < clouds.length; i++){
-      clouds[i].x -= clouds[i].v * dt;
+      clouds[i].x -= (clouds[i].v + pal.wind * 2.6) * dt;
       if(clouds[i].x < -90){ clouds[i].x = W + 40; clouds[i].y = 22 + Math.random()*70; }
     }
     // particles always settle (so the crash burst falls and fades on the game-over screen)
@@ -546,8 +549,8 @@
     dist += speed * dt;
     score = Math.floor(dist / 24);
     if(score - lastPointAt >= 100){ lastPointAt = score - (score % 100); sndPoint(); }
-    var th = Math.floor(score / 1000);
-    if(th !== lastThousand){ lastThousand = th; setWeather(th % PALETTES.length); }
+    var step = Math.floor(score / 200);
+    if(step !== lastStep){ lastStep = step; setWeather(pickWeather()); }
     speed = Math.min(maxSpeed, baseSpeed + dist / 2600);
 
     // dino physics
@@ -717,15 +720,15 @@
       ctx.arc(cl.x + 4*s, cl.y - 7*s, 12*s, 0, Math.PI*2);
       ctx.fill();
     }
-    // rain streaks
+    // rain streaks (slant harder when the wind blows)
     if(pal.rain > 0.03){
       ctx.strokeStyle = "rgba(205,225,240," + (pal.rain * 0.55).toFixed(3) + ")";
       ctx.lineWidth = 2; ctx.lineCap = "round";
       ctx.beginPath();
       for(var ri = 0; ri < 70; ri++){
-        var rx = (ri * 97 + frame * 26) % (W + 60) - 30;
-        var ry = (ri * 61 + frame * 38) % H;
-        ctx.moveTo(rx, ry); ctx.lineTo(rx - 4, ry + 13);
+        var rx = (ri * 97 + frame * (26 + pal.wind * 30)) % (W + 120) - 60;
+        var ry = (ri * 61 + frame * (38 + pal.wind * 14)) % H;
+        ctx.moveTo(rx, ry); ctx.lineTo(rx - (4 + pal.wind * 14), ry + 13);
       }
       ctx.stroke();
     }
@@ -737,6 +740,87 @@
         var fy = (fi * 47 + frame * 1.1) % H;
         ctx.beginPath(); ctx.arc(fx, fy, 1.6 + (fi % 3) * 0.7, 0, Math.PI*2); ctx.fill();
       }
+    }
+    // wind streaks (tufaan)
+    if(pal.wind > 0.25){
+      ctx.strokeStyle = "rgba(235,242,248," + ((pal.wind - 0.25) * 0.5).toFixed(3) + ")";
+      ctx.lineWidth = 2; ctx.lineCap = "round";
+      ctx.beginPath();
+      for(var wi2 = 0; wi2 < 12; wi2++){
+        var wy = 30 + (wi2 * 37) % 190;
+        var wx2 = W + 70 - ((wi2 * 211 + frame * 14) % (W + 140));
+        ctx.moveTo(wx2, wy); ctx.lineTo(wx2 - 46, wy + 3);
+      }
+      ctx.stroke();
+    }
+    // rising embers (volcano)
+    if(pal.ember > 0.03){
+      for(var ei = 0; ei < 46; ei++){
+        var ex = (ei * 89 + Math.sin(frame * 0.03 + ei) * 8 - frame * 0.3) % W;
+        if(ex < 0) ex += W;
+        var ey = H - ((ei * 41 + frame * (1.2 + (ei % 3) * 0.4)) % H);
+        ctx.fillStyle = "rgba(255," + (120 + (ei % 3) * 40) + ",30," + (pal.ember * 0.85).toFixed(3) + ")";
+        ctx.beginPath(); ctx.arc(ex, ey, 1.4 + (ei % 3) * 0.8, 0, Math.PI*2); ctx.fill();
+      }
+    }
+  }
+
+  // Ground-level weather scenes, drawn over the ground: lava & waterfall
+  function drawWeatherFX(){
+    if(pal.lava > 0.02){
+      ctx.save();
+      ctx.globalAlpha = pal.lava;
+      // glowing lava cracks scrolling with the ground
+      ctx.strokeStyle = "rgba(255,110,20,.9)";
+      ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath();
+      var loff = dist % 90;
+      for(var lx = -loff; lx < W; lx += 90){
+        ctx.moveTo(lx, GROUND + 14);
+        ctx.lineTo(lx + 18, GROUND + 22);
+        ctx.lineTo(lx + 34, GROUND + 16);
+        ctx.lineTo(lx + 52, GROUND + 28);
+      }
+      ctx.stroke();
+      // molten glow pooling at the bottom edge
+      var lg = ctx.createLinearGradient(0, H - 14, 0, H);
+      lg.addColorStop(0, "rgba(255,80,10,0)");
+      lg.addColorStop(1, "rgba(255,90,10,.75)");
+      ctx.fillStyle = lg;
+      ctx.fillRect(0, H - 14, W, 14);
+      ctx.restore();
+    }
+    if(pal.water > 0.02){
+      ctx.save();
+      ctx.globalAlpha = pal.water;
+      var wx = W - 96;
+      // rock ledge the water pours from
+      ctx.fillStyle = "rgba(90,100,110,.95)";
+      roundRect(wx - 6, 58, 132, 16, 6); ctx.fill();
+      // the falling sheet of water
+      var wg = ctx.createLinearGradient(wx, 0, wx + 84, 0);
+      wg.addColorStop(0, "rgba(170,225,250,.25)");
+      wg.addColorStop(0.5, "rgba(200,240,255,.75)");
+      wg.addColorStop(1, "rgba(170,225,250,.25)");
+      ctx.fillStyle = wg;
+      ctx.fillRect(wx, 70, 84, GROUND - 70);
+      // rushing streaks inside the fall
+      ctx.strokeStyle = "rgba(255,255,255,.65)";
+      ctx.lineWidth = 2; ctx.lineCap = "round";
+      ctx.beginPath();
+      for(var wi = 0; wi < 9; wi++){
+        var sx = wx + 6 + wi * 9;
+        var sy = 74 + ((wi * 53 + frame * 9) % (GROUND - 84));
+        ctx.moveTo(sx, sy); ctx.lineTo(sx, sy + 16);
+      }
+      ctx.stroke();
+      // foam where the water lands
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      for(var fi2 = 0; fi2 < 7; fi2++){
+        var fx2 = wx + 4 + fi2 * 12 + Math.sin(frame * 0.15 + fi2) * 2;
+        ctx.beginPath(); ctx.arc(fx2, GROUND + 3, 5 + (fi2 % 3), 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
     }
   }
 
@@ -948,6 +1032,7 @@
     }
     drawSky();
     drawGround();
+    drawWeatherFX();
     for(var i = 0; i < obstacles.length; i++){
       if(obstacles[i].type === "cactus") drawCactus(obstacles[i]);
       else drawBird(obstacles[i]);
